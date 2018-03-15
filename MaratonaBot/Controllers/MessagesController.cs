@@ -1,8 +1,12 @@
-﻿using System.Net;
+﻿using System;
+using System.Configuration;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Web.Http;
 using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Builder.Luis;
 using Microsoft.Bot.Connector;
 
 namespace MaratonaBot
@@ -16,13 +20,27 @@ namespace MaratonaBot
         /// </summary>
         public async Task<HttpResponseMessage> Post([FromBody]Activity activity)
         {
-            if (activity.Type == ActivityTypes.Message)
+            var connector = new ConnectorClient(new Uri(activity.ServiceUrl));
+
+            var attributes = new LuisModelAttribute(
+                ConfigurationManager.AppSettings["LuisId"],
+                ConfigurationManager.AppSettings["LuisSubscriptionKey"]);
+            var service = new LuisService(attributes);
+
+            switch (activity.Type)
             {
-                await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
-            }
-            else
-            {
-                HandleSystemMessage(activity);
+                case ActivityTypes.Message:
+                    await Conversation.SendAsync(activity, () => new Dialogs.Conversation(service));
+                    break;
+                case ActivityTypes.ConversationUpdate:
+                    if (activity.MembersAdded.Any(o => o.Id == activity.Recipient.Id))
+                    {
+                        var reply = activity.CreateReply();
+                        reply.Text = "Olá, Eu sou um Bot que vai te ajudar na busca de produtos!";
+
+                        await connector.Conversations.ReplyToActivityAsync(reply);
+                    }
+                    break;
             }
             var response = Request.CreateResponse(HttpStatusCode.OK);
             return response;
