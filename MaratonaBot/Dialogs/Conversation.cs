@@ -6,8 +6,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
-using BuscaProdutos;
 using Microsoft.Bot.Connector;
+using System.Text.RegularExpressions;
+using System.Text;
+using System.Globalization;
+using System.Net.Http;
+using Newtonsoft.Json;
+using MaratonaBot.Models;
 
 namespace MaratonaBot.Dialogs
 {
@@ -60,12 +65,12 @@ namespace MaratonaBot.Dialogs
             else
             {
                 await context.PostAsync("Só um minuto, já te mando o que encontrei!");
-                var produto = new Produtos();
                 var reply = context.MakeMessage();
                 reply.Text = entity;
                 reply.Type = ActivityTypes.Message;
                 reply.AttachmentLayout = AttachmentLayoutTypes.Carousel;
-                reply.Attachments = produto.CarregaProdutos(entity, QtdProdutos);
+                var produto = new BuscaProduto();
+                reply.Attachments = await produto.CarregaProdutos(entity, QtdProdutos);
                 await context.PostAsync(reply);
             }
 
