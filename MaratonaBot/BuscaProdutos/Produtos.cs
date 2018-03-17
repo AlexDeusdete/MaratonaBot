@@ -3,8 +3,10 @@ using Microsoft.Bot.Connector;
 using Scraping;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace BuscaProdutos
 {
@@ -29,7 +31,10 @@ namespace BuscaProdutos
             //Carrega a pagina do buscador 
             //Estou atribuindo o resultado ao HtmlAgilityPack para fazer o parse do HTML.
             this.RoboWebClient._allowAutoRedirect = false;
-            var ret = this.HttpGet("https://www.buscape.com.br/search/"+Url);
+            //regex para retirar caracteres especiais
+            var urlBusca = Regex.Replace(Url, "(?i)[^0-9a-záéíóúàèìòùâêîôûãõç\\s]", "");
+            urlBusca = string.Format(@"https://www.buscape.com.br/search/{0}", RemoverAcentos(urlBusca.TrimEnd())).Replace(" ","-");
+            var ret = this.HttpGet(urlBusca);
 
             //Capturando apenas as tags que estão definidas como article e ordenando pelo ID de cada Tag.
             var produtos = ret.DocumentNode.SelectNodes("//div[@class='bui-card bui-product']").ToList();
@@ -103,6 +108,27 @@ namespace BuscaProdutos
             string ret = Encoding.UTF8.GetString(data);
 
             return ret;
+        }
+        /// <summary>
+        /// Remove todos os acentos do link
+        /// </summary>
+        /// <param name="texto"></param>
+        /// <returns></returns>
+        private string RemoverAcentos(string texto)
+        {
+            string s = texto.Normalize(NormalizationForm.FormD);
+
+            StringBuilder sb = new StringBuilder();
+
+            for (int k = 0; k < s.Length; k++)
+            {
+                UnicodeCategory uc = CharUnicodeInfo.GetUnicodeCategory(s[k]);
+                if (uc != UnicodeCategory.NonSpacingMark)
+                {
+                    sb.Append(s[k]);
+                }
+            }
+            return sb.ToString();
         }
 
     }

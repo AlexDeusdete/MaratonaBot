@@ -62,6 +62,7 @@ namespace MaratonaBot.Dialogs
                 await context.PostAsync("Só um minuto, já te mando o que encontrei!");
                 var produto = new Produtos();
                 var reply = context.MakeMessage();
+                reply.Text = entity;
                 reply.Type = ActivityTypes.Message;
                 reply.AttachmentLayout = AttachmentLayoutTypes.Carousel;
                 reply.Attachments = produto.CarregaProdutos(entity, QtdProdutos);
