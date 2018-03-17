@@ -6,12 +6,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
+using BuscaProdutos;
+using Microsoft.Bot.Connector;
 
 namespace MaratonaBot.Dialogs
 {
     [Serializable]
     public class Conversation : LuisDialog<object>
     {
+        private const int QtdProdutos = 5;
         public Conversation(ILuisService service) : base(service) { }
         /// <summary>
         /// intenção de algo sem sentido para o bot
@@ -48,7 +51,24 @@ namespace MaratonaBot.Dialogs
         [LuisIntent("Procura-Produto")]
         public async Task ItencaoProcurandoProduto(IDialogContext context, LuisResult result)
         {
-            await context.PostAsync("Só um minuto, já te mando o que encontrei!");
+            var entity = result.Entities.FirstOrDefault(c => c.Type == "Produto")?.Entity;
+
+            if (string.IsNullOrEmpty(entity))
+            {
+                await context.PostAsync("Poderia melhorar um pouco sua frase? Não consegui entender.");
+            }
+            else
+            {
+                await context.PostAsync("Só um minuto, já te mando o que encontrei!");
+                var produto = new Produtos();
+                var reply = context.MakeMessage();
+                reply.Type = ActivityTypes.Message;
+                reply.AttachmentLayout = AttachmentLayoutTypes.Carousel;
+                reply.Attachments = produto.CarregaProdutos(entity, QtdProdutos);
+                await context.PostAsync(reply);
+            }
+
+
             context.Done<string>(null);
         }
         /// <summary>
