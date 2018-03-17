@@ -42,7 +42,7 @@ namespace MaratonaBot.Dialogs
         [LuisIntent("Saudacao")]
         public async Task ItencaoSaudacao(IDialogContext context, LuisResult result)
         {
-            await context.PostAsync("Olá, é um prazer poder te atender!");
+            await context.PostAsync("Olá, Procuro produtos para vocês, tem algum que esteja procurando agora?");
             context.Done<string>(null);
         }
         /// <summary>

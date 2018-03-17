@@ -37,7 +37,9 @@ namespace BuscaProdutos
             var ret = this.HttpGet(urlBusca);
 
             //Capturando apenas as tags que estão definidas como article e ordenando pelo ID de cada Tag.
-            var produtos = ret.DocumentNode.SelectNodes("//div[@class='bui-card bui-product']").ToList();
+            var aux = ret.DocumentNode.SelectNodes("//body").First();
+            var produtos = aux.SelectNodes("//div[contains(concat(' ', normalize-space(@class), ' '), ' bui-card bui-product ')]");
+
             List<Produto> listprod = new List<Produto>();
 
 
@@ -46,7 +48,6 @@ namespace BuscaProdutos
             foreach (var item in produtos)
             {
                 Produto prd = new Produto();
-
                 //Carregando o Html de cada artigo.
                 doc.LoadHtml(item.InnerHtml);
 
