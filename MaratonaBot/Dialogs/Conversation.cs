@@ -85,7 +85,7 @@ namespace MaratonaBot.Dialogs
         public async Task ItencaoHabilidades(IDialogContext context, LuisResult result)
         {
             await context.PostAsync("Olha eu posso fazer as seguites coisas\n"+
-                                    "Procurar produtos por foto, imagem, descrição\n"+
+                                    "Procurar produtos por foto, imagens, descrição\n"+
                                     " ou até mesmo você pode me enviar um audio contando "+
                                     "como esse produto é que eu procuro para você!");
             context.Done<string>(null);

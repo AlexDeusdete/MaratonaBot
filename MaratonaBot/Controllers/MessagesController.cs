@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using System.Web;
 using System.Web.Configuration;
 using System.Web.Http;
 using MaratonaBot.Models;
@@ -14,6 +15,7 @@ using Microsoft.Bot.Builder.Luis;
 using Microsoft.Bot.Connector;
 using Newtonsoft.Json;
 using SimilarProducts.Services;
+using SpeechToText.Services;
 
 namespace MaratonaBot
 {
@@ -37,14 +39,16 @@ namespace MaratonaBot
             {
                 case ActivityTypes.Message:
                     var image = activity.Attachments?.FirstOrDefault(a => a.ContentType.Contains("image"));
+                    var audioAttachment = activity.Attachments?.FirstOrDefault(a => a.ContentType.Contains("audio/wav") || a.ContentType.Contains("audio/ogg") || a.ContentType.Contains("application/octet-stream"));
+
                     if (image != null)
                     {
-                        using (var stream = await GetImageStream(connector, image))
+                        using (var stream = await GetStream(connector, image))
                         {
-                            var entity = GetNameImage(stream).Result;
+                            Activity message = activity.CreateReply("Só um minuto, já te mando o que encontrei!");
+                            await connector.Conversations.ReplyToActivityAsync(message);
 
-                            //Activity message = activity.CreateReply("Só um minuto, já te mando o que encontrei!");
-                            //await connector.Conversations.ReplyToActivityAsync(message);
+                            var entity = GetNameImage(stream).Result;
 
                             var reply = activity.CreateReply(entity);
                             reply.Type = ActivityTypes.Message;
@@ -53,6 +57,12 @@ namespace MaratonaBot
                             reply.Attachments = await produto.CarregaProdutos(entity, 5);
                             await connector.Conversations.ReplyToActivityAsync(reply);
                         }
+                    }else if(audioAttachment != null)
+                    {
+                        var stream = await GetStream(connector, audioAttachment);
+                        var text = await GetTextFromAudioAsync(stream);
+                        activity.Text = text;
+                        await Conversation.SendAsync(activity, () => new Dialogs.Conversation(service));
                     }
                     else
                     {
@@ -68,11 +78,58 @@ namespace MaratonaBot
                         await connector.Conversations.ReplyToActivityAsync(reply);
                     }
                     break;
+                case ActivityTypes.ContactRelationUpdate:
+                    if (activity.Action == "add")
+                    {
+                        var reply = activity.CreateReply();
+                        reply.Text = "Olá, Eu sou um Bot que vai te ajudar na busca de produtos!";
+                        await connector.Conversations.ReplyToActivityAsync(reply);
+                    }
+                    break;
             }
             var response = Request.CreateResponse(HttpStatusCode.OK);
             return response;
         }
+        public async Task<string> GetTextFromAudioAsync(Stream audiostream)
+        {
+            var requestUri = @"https://speech.platform.bing.com/recognize?scenarios=smd&appid=D4D52672-91D7-4C74-8AD8-42B1D98141A5&locale=pt-br&device.os=bot&form=BCSSTT&version=3.0&format=json&instanceid=565D69FF-E928-4B7E-87DA-9A750B96D9E3&requestid=" + Guid.NewGuid();
 
+            using (var client = new HttpClient())
+            {
+                var token = Authentication.Instance.GetAccessToken();
+                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + token);
+
+                using (var binaryContent = new ByteArrayContent(StreamToBytes(audiostream)))
+                {
+                    binaryContent.Headers.TryAddWithoutValidation("content-type", "audio/wav; codec=\"audio/pcm\"; samplerate=16000");
+
+                    var response = await client.PostAsync(requestUri, binaryContent);
+                    if (response.StatusCode != System.Net.HttpStatusCode.OK)
+                    {
+                        throw new HttpException((int)response.StatusCode, $"({response.StatusCode}) {response.ReasonPhrase}");
+                    }
+
+                    var responseString = await response.Content.ReadAsStringAsync();
+                    try
+                    {
+                        dynamic data = JsonConvert.DeserializeObject(responseString);
+                        return data.header.name;
+                    }
+                    catch (JsonReaderException ex)
+                    {
+                        throw new Exception(responseString, ex);
+                    }
+                }
+            }
+        }
+        private static byte[] StreamToBytes(Stream input)
+        {
+            using (MemoryStream ms = new MemoryStream())
+            {
+                input.CopyTo(ms);
+                return ms.ToArray();
+            }
+        }
         /// <summary>
         /// Gets a list of visually similar images from an image stream.
         /// </summary>
@@ -103,7 +160,7 @@ namespace MaratonaBot
             }
         }
 
-        private static async Task<Stream> GetImageStream(ConnectorClient connector, Attachment imageAttachment)
+        private static async Task<Stream> GetStream(ConnectorClient connector, Attachment imageAttachment)
         {
             using (var httpClient = new HttpClient())
             {
@@ -127,12 +184,12 @@ namespace MaratonaBot
         /// <returns>JwT token of the bot</returns>
         private static async Task<string> GetTokenAsync(ConnectorClient connector)
         {
-            if (connector.Credentials is MicrosoftAppCredentials credentials)
+            /*if (connector.Credentials is MicrosoftAppCredentials credentials)
             {
                 return await credentials.GetTokenAsync();
-            }
+            }*/
 
-            return null;
+            return await (connector.Credentials as MicrosoftAppCredentials).GetTokenAsync();
         }
 
         private Activity HandleSystemMessage(Activity message)
